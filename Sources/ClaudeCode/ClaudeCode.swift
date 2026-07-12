@@ -4,6 +4,8 @@ import SwiftTerm
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     var activeTerminalView: LocalProcessTerminalView?
+    var fileExplorerController: FileExplorerController?
+    var splitView: NSSplitView!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let panel = NSOpenPanel()
@@ -21,19 +23,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let chosenPath = chosenURL.path
-
-        if !isClaudeInstalled() {
-            let alert = NSAlert()
-            alert.messageText = "Claude Code isn't installed"
-            alert.informativeText = "This app needs the Claude Code CLI. Install it now using Anthropic's official installer (curl -fsSL https://claude.ai/install.sh | bash)? You'll be asked to sign in to your Claude account right after."
-            alert.addButton(withTitle: "Install and Continue")
-            alert.addButton(withTitle: "Cancel")
-            let response = alert.runModal()
-            guard response == .alertFirstButtonReturn else {
-                NSApp.terminate(nil)
-                return
-            }
-        }
 
         let terminalView = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
         terminalView.allowMouseReporting = false
@@ -59,19 +48,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         self.activeTerminalView = terminalView
 
+        let explorer = FileExplorerController(rootURL: chosenURL)
+        self.fileExplorerController = explorer
+
+        let splitView = NSSplitView(frame: NSRect(x: 0, y: 0, width: 1120, height: 600))
+        splitView.isVertical = true
+        splitView.dividerStyle = .thin
+        splitView.delegate = self
+        splitView.addArrangedSubview(explorer.view)
+        splitView.addArrangedSubview(terminalView)
+        splitView.setHoldingPriority(.defaultLow + 1, forSubviewAt: 0)
+        splitView.setHoldingPriority(.defaultLow, forSubviewAt: 1)
+        self.splitView = splitView
+
         window = NSWindow(
-            contentRect: NSRect(x: 200, y: 200, width: 900, height: 600),
+            contentRect: NSRect(x: 200, y: 200, width: 1120, height: 600),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "Claude Code — \(chosenURL.lastPathComponent)"
-        window.contentView = terminalView
+        window.contentView = splitView
+        splitView.setPosition(220, ofDividerAt: 0)
         window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(terminalView)
     }
 
     @objc func sendExit() {
         activeTerminalView?.send(txt: "/exit\r")
+    }
+
+    @objc func toggleFileExplorer() {
+        guard let sidebar = fileExplorerController?.view else { return }
+        sidebar.isHidden.toggle()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -80,21 +89,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func shellEscape(_ path: String) -> String {
         return "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
-    }
-
-    func isClaudeInstalled() -> Bool {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-l", "-c", "command -v claude"]
-        process.standardOutput = Pipe()
-        process.standardError = Pipe()
-        do {
-            try process.run()
-            process.waitUntilExit()
-            return process.terminationStatus == 0
-        } catch {
-            return false
-        }
     }
 
     var launchClaudeCommand: String {
@@ -130,7 +124,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-func buildMainMenu() -> NSMenu {
+extension AppDelegate: NSSplitViewDelegate {
+    func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+        160
+    }
+
+    func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
+        400
+    }
+}
+
+func buildMainMenu(target: AppDelegate) -> NSMenu {
     let mainMenu = NSMenu()
 
     let appMenuItem = NSMenuItem()
@@ -152,6 +156,14 @@ func buildMainMenu() -> NSMenu {
     editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
     editMenu.addItem(withTitle: "Select All", action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
 
+    let viewMenuItem = NSMenuItem()
+    mainMenu.addItem(viewMenuItem)
+    let viewMenu = NSMenu(title: "View")
+    viewMenuItem.submenu = viewMenu
+    let toggleExplorerItem = NSMenuItem(title: "Toggle File Browser", action: #selector(AppDelegate.toggleFileExplorer), keyEquivalent: "b")
+    toggleExplorerItem.target = target
+    viewMenu.addItem(toggleExplorerItem)
+
     let windowMenuItem = NSMenuItem()
     mainMenu.addItem(windowMenuItem)
     let windowMenu = NSMenu(title: "Window")
@@ -161,10 +173,3 @@ func buildMainMenu() -> NSMenu {
 
     return mainMenu
 }
-
-let app = NSApplication.shared
-let delegate = AppDelegate()
-app.delegate = delegate
-app.mainMenu = buildMainMenu()
-app.setActivationPolicy(.regular)
-app.run()
