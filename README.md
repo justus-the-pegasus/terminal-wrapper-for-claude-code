@@ -4,7 +4,7 @@ A lightweight macOS app that opens a project folder and launches [Claude Code](h
 
 ## Download
 
-[⬇️ Download the latest .dmg](https://github.com/justus-the-pegasus/terminal-wrapper-for-claude-code/releases/latest/download/Terminal%20Wrapper%20for%20Claude%20Code.dmg)
+[⬇️ Download the latest .dmg](https://github.com/justus-the-pegasus/terminal-wrapper-for-claude-code/releases/latest/download/Terminal.Wrapper.for.Claude.Code.dmg)
 
 Open the `.dmg`, drag the app into `Applications`, then launch it. Since the app isn't notarized by Apple, macOS will show an "unidentified developer" warning the first time — right-click the app and choose **Open** to bypass it.
 
