@@ -44,7 +44,7 @@ final class FileSystemItem {
 final class FileExplorerController: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
     let rootItem: FileSystemItem
     let outlineView = NSOutlineView()
-    let scrollView = NSScrollView()
+    let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 300, height: 600))
 
     var view: NSView { scrollView }
 
@@ -58,14 +58,21 @@ final class FileExplorerController: NSObject, NSOutlineViewDataSource, NSOutline
     private func setupOutlineView() {
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("FileColumn"))
         column.title = "Name"
+        column.width = scrollView.frame.width
+        column.minWidth = 100
+        column.resizingMask = .autoresizingMask
         outlineView.addTableColumn(column)
         outlineView.outlineTableColumn = column
         outlineView.headerView = nil
         outlineView.dataSource = self
         outlineView.delegate = self
-        outlineView.style = .sourceList
-        outlineView.rowSizeStyle = .small
+        outlineView.style = .plain
+        outlineView.backgroundColor = TerminalTheme.backgroundColor
+        outlineView.selectionHighlightStyle = .regular
+        outlineView.rowHeight = TerminalTheme.rowHeight
         outlineView.autoresizesOutlineColumn = true
+        outlineView.columnAutoresizingStyle = .firstColumnOnlyAutoresizingStyle
+        outlineView.autoresizingMask = [.width, .height]
         outlineView.doubleAction = #selector(handleDoubleClick(_:))
         outlineView.target = self
         outlineView.menu = makeContextMenu()
@@ -75,7 +82,7 @@ final class FileExplorerController: NSObject, NSOutlineViewDataSource, NSOutline
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = true
-        scrollView.backgroundColor = NSColor.windowBackgroundColor
+        scrollView.backgroundColor = TerminalTheme.backgroundColor
     }
 
     private func makeContextMenu() -> NSMenu {
@@ -157,7 +164,6 @@ final class FileExplorerController: NSObject, NSOutlineViewDataSource, NSOutline
             let textField = NSTextField(labelWithString: "")
             textField.translatesAutoresizingMaskIntoConstraints = false
             textField.lineBreakMode = .byTruncatingMiddle
-            textField.font = NSFont.systemFont(ofSize: 12)
 
             cellView.addSubview(imageView)
             cellView.addSubview(textField)
@@ -176,11 +182,9 @@ final class FileExplorerController: NSObject, NSOutlineViewDataSource, NSOutline
             ])
         }
         cellView.textField?.stringValue = node.name
+        cellView.textField?.font = TerminalTheme.font
+        cellView.textField?.textColor = TerminalTheme.textColor
         cellView.imageView?.image = NSWorkspace.shared.icon(forFile: node.url.path)
         return cellView
-    }
-
-    func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
-        20
     }
 }
