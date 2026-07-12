@@ -22,6 +22,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let chosenPath = chosenURL.path
 
+        if !isClaudeInstalled() {
+            let alert = NSAlert()
+            alert.messageText = "Claude Code isn't installed"
+            alert.informativeText = "This app needs the Claude Code CLI. Install it now using Anthropic's official installer (curl -fsSL https://claude.ai/install.sh | bash)? You'll be asked to sign in to your Claude account right after."
+            alert.addButton(withTitle: "Install and Continue")
+            alert.addButton(withTitle: "Cancel")
+            let response = alert.runModal()
+            guard response == .alertFirstButtonReturn else {
+                NSApp.terminate(nil)
+                return
+            }
+        }
+
         let terminalView = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 900, height: 600))
         terminalView.allowMouseReporting = false
         terminalView.startProcess(
@@ -69,6 +82,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
+    func isClaudeInstalled() -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-l", "-c", "command -v claude"]
+        process.standardOutput = Pipe()
+        process.standardError = Pipe()
+        do {
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        } catch {
+            return false
+        }
+    }
+
     var launchClaudeCommand: String {
         let fallbackPaths = [
             "$HOME/.local/bin/claude",
@@ -85,8 +113,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             exec claude
         \(fallbackChecks)
         else
-            echo "claude command not found. Install Claude Code or add it to your PATH: https://docs.claude.com/claude-code"
-            exec zsh
+            echo "Claude Code isn't installed yet — installing it now..."
+            echo
+            curl -fsSL https://claude.ai/install.sh | bash
+            echo
+            if [ -x "$HOME/.local/bin/claude" ]; then
+                exec "$HOME/.local/bin/claude"
+            elif command -v claude >/dev/null 2>&1; then
+                exec claude
+            else
+                echo "Install failed. Install Claude Code manually: https://docs.claude.com/claude-code"
+                exec zsh
+            fi
         fi
         """
     }
